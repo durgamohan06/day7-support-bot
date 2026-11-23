@@ -20,10 +20,58 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The app runs at http://127.0.0.1:5000. Send requests with Postman:
+The app runs at http://127.0.0.1:5000.
 
-- **POST** `http://127.0.0.1:5000/chat`
-- Body (raw, JSON): `{"customer_email": "ravi.kumar@example.com", "message": "Where is my order 10231?"}`
+## Postman authentication and order status
+
+Send a `POST` request to `http://127.0.0.1:5000/chat` with:
+
+- Header: `Authorization: Bearer dev-ravi-token`
+- Header: `Content-Type: application/json`
+- Body:
+
+```json
+{"message": "Where is my order 10231?"}
+```
+
+Use `dev-priya-token` for the fictional Priya customer. The `/chat` endpoint
+does not accept a caller-supplied `customer_email` as proof of identity.
+
+## Refund confirmation
+
+To initiate a refund, send:
+
+```json
+{"message": "Refund Rs 500 for order 10231"}
+```
+
+The response will have HTTP 202 and include `confirmation_token` only after
+server-side authentication and refund validation. Confirm it with:
+
+```json
+{"confirmation_token": "<token-from-refund-response>"}
+```
+
+Confirmation is valid for five minutes, can be used once, and is bound to
+the authenticated customer and refund action.
+
+## Account-closure confirmation
+
+To initiate closure for the authenticated account, send:
+
+```json
+{"message": "Close my account"}
+```
+
+The response will have HTTP 202 and the account will remain active until the
+returned token is confirmed:
+
+```json
+{"confirmation_token": "<token-from-closure-response>"}
+```
+
+The closure token is valid for five minutes, can be used once, and cannot be
+used by another customer or as a refund confirmation.
 
 ## Run the tests
 
@@ -31,8 +79,26 @@ The app runs at http://127.0.0.1:5000. Send requests with Postman:
 pytest -v
 ```
 
-3 tests are included and they pass. A CI workflow in `.github/workflows/ci.yml`
-runs them on every push and pull request.
+The test suite is run with `.venv\Scripts\python.exe -m pytest -v`. A CI workflow
+in `.github/workflows/ci.yml` runs the tests on every push and pull request.
+
+## Development authentication
+
+This training application accepts only the following development bearer tokens:
+
+- `Authorization: Bearer dev-ravi-token` identifies the fictional `ravi.kumar@example.com` customer.
+- `Authorization: Bearer dev-priya-token` identifies the fictional `priya.s@example.com` customer.
+
+These tokens are local fixture credentials, not production authentication. Do not deploy
+them to a real environment. Production should use an external identity provider and
+cryptographically validated access tokens.
+
+## Sensitive actions
+
+Refunds and account closure do not execute immediately from LLM output. The endpoint
+first validates authentication, order ownership, action arguments, and refund limits.
+It then returns a 5-minute, single-use confirmation token that is bound to the
+authenticated customer and action.
 
 ## Files
 
